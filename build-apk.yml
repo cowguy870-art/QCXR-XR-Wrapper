@@ -1,0 +1,59 @@
+# Builds an installable (debug-signed) APK of the Unity launcher with the purple theme applied.
+# Put this file at .github/workflows/build-apk.yml in YOUR FORK of QCXR-XR-Wrapper,
+# alongside tools/apply_purple_theme.py. Then: Actions tab > "Build purple APK" > Run workflow.
+name: Build purple APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # The Unity Android image is huge; free runner disk space first.
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: false
+          docker-images: false
+          swap-storage: true
+
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Apply purple theme
+        run: |
+          pip install pillow
+          python3 tools/apply_purple_theme.py
+
+      - uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-Android-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: Library-Android-
+
+      - name: Build Android APK
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: Android
+          unityVersion: auto            # reads ProjectSettings/ProjectVersion.txt
+          androidExportType: androidPackage
+          buildName: PurpleCraft
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PurpleCraft-apk
+          path: build/Android
